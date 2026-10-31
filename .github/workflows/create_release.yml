@@ -1,4 +1,4 @@
-name: Create Release and Update Repository
+name: Build and Release
 
 on:
   workflow_dispatch:
@@ -11,11 +11,35 @@ permissions:
 
 jobs:
   release:
-    uses: SHOEGAZEssb/DalamudPluginRepo/.github/workflows/reusable_create_release.yml@main
-    with:
-      internal_name: Dagobert
-      solution_name: Dagobert
-      build_configuration: Release
-      personal_plugin_repo: SHOEGAZEssb/DalamudPluginRepo
-      personal_plugin_repo_branch: main
-    secrets: inherit
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.403'
+      - name: Download stable Dalamud
+        shell: pwsh
+        run: |
+          $dalamud = Join-Path $env:RUNNER_TEMP 'dalamud'
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile "$env:RUNNER_TEMP/dalamud.zip"
+          Expand-Archive "$env:RUNNER_TEMP/dalamud.zip" $dalamud
+          "DALAMUD_HOME=$dalamud" >> $env:GITHUB_ENV
+      - name: Restore locked packages
+        run: dotnet restore Dagobert.sln --locked-mode
+      - name: Build plugin
+        run: dotnet build Dagobert/Dagobert.csproj --no-restore -c Release -p:Platform=x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dagobert
+          path: Dagobert/bin/x64/Release/Dagobert/*
+          if-no-files-found: error
+      - name: Create test release in this repository
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" "Dagobert/bin/x64/Release/Dagobert/latest.zip" --verify-tag --prerelease --title "Dagobert $env:GITHUB_REF_NAME" --notes-file .github/release-notes.md
