@@ -118,4 +118,49 @@ Check("Random maximum is clamped and total delay avoids overflow", () =>
     Expect(s.NextDue == 691200000, true);
     s.Configure(true, 1, 0, -1); Expect(s.NextDue == 60000, true);
 });
-Console.WriteLine($"{passed} scheduling checks passed.");
+Check("Bell detection accepts title-case display names with lowercase Excel nouns", () =>
+{
+    Expect(BellSelection.Matches("Summoning Bell", "summoning bell", 0), true);
+    Expect(BellSelection.Matches("summoning bell", "Summoning Bell", 0), true);
+});
+Check("Bell matching works with localized names and harmless whitespace", () =>
+{
+    Expect(BellSelection.Matches(" SONNETTE ", "sonnette", 0), true);
+    Expect(BellSelection.Matches("リテイナーベル", "other", 0), true);
+});
+Check("Standard bell data ID works without a matching display name", () =>
+{
+    Expect(BellSelection.Matches("Different display text", "summoning bell", 2000401), true);
+});
+Check("Non-bell names and blank names are rejected", () =>
+{
+    Expect(BellSelection.Matches("Market Board", "summoning bell", 123), false);
+    Expect(BellSelection.Matches("", "", 0), false);
+});
+Check("Inn range includes bells beyond the normal-world threshold", () =>
+{
+    Expect(BellSelection.WithinRange(4.7f, true, false, true), true);
+    Expect(BellSelection.WithinRange(4.7f, true, false, false), false);
+});
+Check("Housing and world bells use their correct interaction boundaries", () =>
+{
+    Expect(BellSelection.WithinRange(6.5f, true, true, false), true);
+    Expect(BellSelection.WithinRange(6.51f, true, true, false), false);
+    Expect(BellSelection.WithinRange(4.6f, true, false, false), true);
+});
+Check("Untargetable bells and invalid distances cannot be selected", () =>
+{
+    Expect(BellSelection.WithinRange(1, false, false, false), false);
+    Expect(BellSelection.WithinRange(float.NaN, true, false, false), false);
+    Expect(BellSelection.WithinRange(-1, true, false, false), false);
+});
+Check("Run Now survives a settings change immediately before the request", () =>
+{
+    var s = new PinchSchedule(maximum => maximum);
+    s.Configure(true, 60, 0, 10);
+    s.Configure(true, 30, 100, 5);
+    s.RunNow(100);
+    s.Configure(true, 30, 101, 5);
+    Expect(s.IsDue(101), true);
+});
+Console.WriteLine($"{passed} scheduling and bell-selection checks passed.");

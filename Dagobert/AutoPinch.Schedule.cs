@@ -8,6 +8,8 @@ using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 using Dalamud.Plugin.Services;
 using ECommons;
 using ECommons.DalamudServices;
+using ECommons.ExcelServices.TerritoryEnumeration;
+using IGameObject = Dalamud.Game.ClientState.Objects.Types.IGameObject;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -90,14 +92,14 @@ internal sealed partial class AutoPinch
             if (AutoRetainerIPC.Installed)
             {
                 if (AutoRetainerIPC.Instance == null) AutoRetainerIPC.Initialize();
-                if (AutoRetainerIPC.Suppressed()) { _scheduleStatus = "Waiting: AutoRetainer is suppressed by another operation"; return; }
+                // Suppression is not a busy signal; retain and restore the existing state.
             }
             if (Plugin.Configuration.EnabledRetainerNames.Contains(Configuration.ALL_DISABLED_SENTINEL))
             {
                 _schedule.Pause("No retainers are enabled");
                 return;
             }
-            if (FindReachableBell() == null) { _scheduleStatus = "Waiting: stand within reach of a summoning bell"; return; }
+            if (FindReachableBell() == null) { _scheduleStatus = DescribeBellSearch(); return; }
             AcquireAutomationLocks();
             ClearState();
             _scheduledCharacter = Svc.PlayerState.ContentId;
@@ -109,6 +111,7 @@ internal sealed partial class AutoPinch
             _scheduleStatus = "Opening summoning bell";
             _nextBellAttempt = 0;
             _nextCloseAttempt = 0;
+            Queue(SelectScheduledBell, "SelectScheduledBell");
             Queue(OpenScheduledBell, "OpenScheduledBell");
             Queue(WaitForRetainerList, "WaitForRetainerList");
         }
@@ -126,16 +129,48 @@ internal sealed partial class AutoPinch
         && !Svc.Condition[ConditionFlag.WatchingCutscene78]
         && !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Crafting];
 
-    private static Dalamud.Game.ClientState.Objects.Types.IGameObject? FindReachableBell()
+    private static IEnumerable<IGameObject> NearbyBells()
+    {
+        var name = Svc.Data.GetExcelSheet<EObjName>().GetRow(2000401).Singular.GetText();
+        return Svc.Objects.Where(obj =>
+            (obj.ObjectKind == ObjectKind.EventObj || obj.ObjectKind == ObjectKind.HousingEventObject)
+            && BellSelection.Matches(obj.Name.TextValue, name, obj.BaseId));
+    }
+
+    private static bool IsInn() => Inns.List.Contains((ushort)Svc.ClientState.TerritoryType);
+
+    private static IGameObject? FindReachableBell()
     {
         var player = Svc.Objects.LocalPlayer;
         if (player == null) return null;
-        var name = Svc.Data.GetExcelSheet<EObjName>().GetRow(2000401).Singular.GetText();
-        return Svc.Objects.Where(obj => obj.IsTargetable
-            && (obj.ObjectKind == ObjectKind.EventObj || obj.ObjectKind == ObjectKind.HousingEventObject)
-            && (obj.Name.TextValue == name || obj.Name.TextValue == "リテイナーベル")
-            && Vector3.Distance(player.Position, obj.Position) < (obj.ObjectKind == ObjectKind.HousingEventObject ? 6.5f : 4.6f))
+        var inn = IsInn();
+        return NearbyBells().Where(obj => BellSelection.WithinRange(Vector3.Distance(player.Position, obj.Position),
+                obj.IsTargetable, obj.ObjectKind == ObjectKind.HousingEventObject, inn))
             .OrderBy(obj => Vector3.DistanceSquared(player.Position, obj.Position)).FirstOrDefault();
+    }
+
+    private static string DescribeBellSearch()
+    {
+        var player = Svc.Objects.LocalPlayer;
+        if (player == null) return "Waiting: character unavailable";
+        var bell = NearbyBells().OrderBy(obj => Vector3.DistanceSquared(player.Position, obj.Position)).FirstOrDefault();
+        if (bell == null) return "Waiting: no summoning bell detected nearby. Target the bell and try again.";
+        var distance = Vector3.Distance(player.Position, bell.Position);
+        var range = BellSelection.InteractionRange(bell.ObjectKind == ObjectKind.HousingEventObject, IsInn());
+        return bell.IsTargetable
+            ? $"Waiting: nearest bell is {distance:F2}m away (interaction range {range:F2}m). Move a little closer."
+            : $"Waiting: nearby bell ({distance:F2}m) is not currently interactable.";
+    }
+
+    private bool? SelectScheduledBell()
+    {
+        if (RetainerListReady()) return true;
+        if (GenericHelpers.IsOccupied()) return false;
+        var bell = FindReachableBell();
+        if (bell == null) { _scheduleStatus = DescribeBellSearch(); return false; }
+        Svc.Targets.Target = bell;
+        _scheduleStatus = "Summoning bell selected; opening retainer list";
+        return true;
     }
 
     private unsafe bool? OpenScheduledBell()
@@ -143,11 +178,17 @@ internal sealed partial class AutoPinch
         if (RetainerListReady()) return true;
         if (Environment.TickCount64 < _nextBellAttempt || GenericHelpers.IsOccupied()) return false;
         var bell = FindReachableBell();
-        if (bell == null) return false;
-        Svc.Targets.Target = bell;
+        if (bell == null) { _scheduleStatus = DescribeBellSearch(); return false; }
+        if (Svc.Targets.Target?.GameObjectId != bell.GameObjectId)
+        {
+            Svc.Targets.Target = bell;
+            return false; // Give target selection a framework tick before interacting.
+        }
         TargetSystem.Instance()->InteractWithObject((GameObject*)bell.Address, false);
         _nextBellAttempt = Environment.TickCount64 + 5000;
-        return true;
+        _scheduleStatus = "Waiting for the retainer list to open";
+        // An interaction request is not success until the actual list is ready.
+        return false;
     }
 
     private static unsafe bool RetainerListReady() =>
@@ -270,6 +311,8 @@ internal sealed partial class AutoPinch
         var status = !_schedule.Enabled ? "Disabled" : _schedule.PauseReason
             ?? (_schedule.Running || _schedule.IsDue(Environment.TickCount64) ? _scheduleStatus : "Waiting for next scheduled run");
         ImGui.TextWrapped($"Status: {status}");
+        if (_taskManager.IsBusy)
+            ImGui.TextWrapped($"Current task: {_taskManager.CurrentTaskName ?? "Preparing"}");
         if (_schedule.Enabled && !_schedule.Running && _schedule.PauseReason == null)
         {
             var remaining = TimeSpan.FromMilliseconds(Math.Max(0, _schedule.NextDue - Environment.TickCount64));
@@ -281,7 +324,15 @@ internal sealed partial class AutoPinch
         }
         else if (_schedule.Enabled)
         {
-            if (ImGui.Button("Run now")) _schedule.RunNow(Environment.TickCount64);
+            if (ImGui.Button("Run now"))
+            {
+                _schedule.Configure(Plugin.Configuration.ScheduledPinchEnabled,
+                    Plugin.Configuration.ScheduledPinchIntervalMinutes, Environment.TickCount64,
+                    Plugin.Configuration.ScheduledPinchRandomExtraMinutes);
+                _schedule.RunNow(Environment.TickCount64);
+                _nextAvailabilityCheck = 0;
+                _scheduleStatus = "Run requested; checking availability";
+            }
             ImGui.SameLine();
             if (_schedule.PauseReason == null)
             {

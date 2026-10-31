@@ -13,5 +13,5 @@
   "ImageUrls": [
     ""
   ],
-  "Changelog": "Added scheduling frequency and random extra delay sliders. Each completed cycle waits the base interval plus a fresh random extra delay; zero keeps fixed intervals. Run Now bypasses the wait."
+  "Changelog": "Fixed scheduled Auto Pinch failing to recognize title-case bell names. Added standard bell ID recognition and inn interaction range, separated targeting from interaction, and wait/retry until the retainer list opens. Existing AutoRetainer suppression no longer blocks runs. Improved waiting/task status."
 }

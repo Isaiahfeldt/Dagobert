@@ -117,3 +117,5 @@ dotnet run --project Dagobert.Checks
 ```
 
 The **Random extra delay** slider adds a uniformly selected extra wait from 0 up to the configured maximum (0–1440 minutes). For example, a 60-minute frequency plus up to 10 random minutes produces a fresh wait between 60 and 70 minutes after each completed cycle. Zero disables randomness. The countdown shows the selected wait. Resume and changing frequency/randomness choose a new wait; Run now bypasses it. Ctrl+click either slider to type an exact value.
+
+Version 1.14.2.2 fixes bell recognition when the displayed name uses different capitalization from the game data, adds standard bell ID matching and inn-room range handling, and waits/retries until the retainer list is actually open. When a due run cannot begin, the settings status reports the nearest recognized bell distance or other blocker; active runs show the queued task. Existing AutoRetainer suppression is preserved without treating it as a busy flag.
