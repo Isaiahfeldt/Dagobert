@@ -91,3 +91,5 @@ The Text-to-Speech options are shown when Windows TTS is available.
 ## Usage
 
 Dagobert adds an `Auto Pinch` button to the retainer list and retainer sell list. While Auto Pinch is running, avoid interacting with the game until it finishes or you press `Cancel`.
+
+During an Auto Pinch run, Dagobert remembers the first valid price for each item and reuses it for duplicate listings, skipping the marketboard lookup and its delays. HQ and NQ items are cached separately. Each listing still uses its own min/max limits and maximum-undercut safety check. The cache is cleared when you start a new Auto Pinch run.

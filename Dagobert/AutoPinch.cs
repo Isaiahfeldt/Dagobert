@@ -34,7 +34,7 @@ namespace Dagobert
     private bool _newPriceFromUniversalis;
     private bool _skipCurrentItem = false;
     private readonly TaskManager _taskManager;
-    private Dictionary<string, CachedPrice> _cachedPrices = [];
+    private Dictionary<(string Name, bool IsHq), CachedPrice> _cachedPrices = [];
     private bool _cachedPricesUseUniversalisDataCenterPrices;
     private int _universalisPriceRequestId;
     private bool _disposed;
@@ -376,7 +376,6 @@ namespace Dagobert
       _taskManager.DelayNext(100);
       _taskManager.Enqueue(DelayMarketBoard, $"DelayMB{index}");
       _taskManager.Enqueue(ClickComparePrice, $"ClickComparePrice{index}");
-      _taskManager.DelayNext(Plugin.Configuration.MarketBoardKeepOpenMS);
       _taskManager.Enqueue(SetNewPrice, $"SetNewPrice{index}");
     }
 
@@ -384,7 +383,6 @@ namespace Dagobert
     {
       // reverse order because we INSERT
       _taskManager.Insert(SetNewPrice, $"SetNewPrice{index}");
-      _taskManager.InsertDelayNext(Plugin.Configuration.MarketBoardKeepOpenMS);
       _taskManager.Insert(ClickComparePrice, $"ClickComparePrice{index}");
       _taskManager.Insert(DelayMarketBoard, $"DelayMB{index}");
       _taskManager.InsertDelayNext(100);
@@ -454,7 +452,7 @@ namespace Dagobert
         if (Plugin.Configuration.UseUniversalisDataCenterPrices && _universalisPriceProvider.CanResolveItem(itemName, rawItemName))
           return true;
 
-        if (!_cachedPrices.TryGetValue(itemName, out var cachedPrice) || cachedPrice.Value <= 0)
+        if (!_cachedPrices.TryGetValue(GetPriceCacheKey(addon), out var cachedPrice) || cachedPrice.Value <= 0)
         {
           Svc.Log.Debug($"{itemName} has no cached price (or that price was <= 0), delaying next mb open");
           _taskManager.InsertDelayNext(Plugin.Configuration.GetMBPricesDelayMS);
@@ -476,7 +474,7 @@ namespace Dagobert
         // if we have a cached price, dont click compare
         var itemName = GetRetainerSellItemName(addon);
         var rawItemName = GetRetainerSellRawItemName(addon);
-        if (_cachedPrices.TryGetValue(itemName, out var cachedPrice) && cachedPrice.Value > 0)
+        if (_cachedPrices.TryGetValue(GetPriceCacheKey(addon), out var cachedPrice) && cachedPrice.Value > 0)
         {
           Svc.Log.Debug($"{itemName}: using cached price");
           _newPrice = cachedPrice.Value;
@@ -493,6 +491,7 @@ namespace Dagobert
           }
 
           Svc.Log.Debug($"Clicking compare prices");
+          _taskManager.InsertDelayNext(Plugin.Configuration.MarketBoardKeepOpenMS);
           ECommons.Automation.Callback.Fire(&addon->AtkUnitBase, true, 4);
           return true;
         }
@@ -520,6 +519,10 @@ namespace Dagobert
           var ui = &retainerSell->AtkUnitBase;
           var itemName = GetRetainerSellItemName(retainerSell);
           _oldPrice = retainerSell->AskingPrice->Value;
+          // Keep the market-derived candidate even if this listing fails its safety check.
+          // Do not cache fallback prices or per-listing adjustments.
+          if (_newPrice.Value > 0)
+            _cachedPrices.TryAdd(GetPriceCacheKey(retainerSell), new CachedPrice(_newPrice.Value, _newPriceFromUniversalis));
           if (!(_newPrice > 0))
           {
             if (Plugin.Configuration.DefaultAmount == 0)
@@ -548,7 +551,6 @@ namespace Dagobert
           if (cutPercentage >= -Plugin.Configuration.MaxUndercutPercentage)
           {
             Svc.Log.Debug($"Setting new price");
-            _cachedPrices.TryAdd(itemName, new CachedPrice(_newPrice.Value, _newPriceFromUniversalis));
             retainerSell->AskingPrice->SetValue(_newPrice.Value);
             Communicator.PrintPriceUpdate(itemName, _oldPrice.Value, _newPrice.Value, cutPercentage, _newPriceFromUniversalis);
           }
@@ -577,6 +579,12 @@ namespace Dagobert
       Svc.Log.Debug($"New price received: {e.NewPrice}");
       _newPrice = e.NewPrice;
       _newPriceFromUniversalis = false;
+    }
+
+    private static unsafe (string Name, bool IsHq) GetPriceCacheKey(AddonRetainerSell* addon)
+    {
+      return (GetRetainerSellItemName(addon).Replace("\uE03C", string.Empty).Trim(),
+        GetRetainerSellRawItemName(addon).Contains('\uE03C'));
     }
 
     private static unsafe string GetRetainerSellItemName(AddonRetainerSell* addon)
@@ -664,7 +672,6 @@ namespace Dagobert
       if (Plugin.Configuration.EnablePostPinchkey && Plugin.KeyState[Plugin.Configuration.PostPinchKey])
       {
         _taskManager.Enqueue(ClickComparePrice, $"ClickComparePricePosted");
-        _taskManager.DelayNext(Plugin.Configuration.MarketBoardKeepOpenMS);
         _taskManager.Enqueue(SetNewPrice, $"SetNewPricePosted");
       }
     }
