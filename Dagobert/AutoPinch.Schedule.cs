@@ -41,7 +41,7 @@ internal sealed partial class AutoPinch
         {
             var now = Environment.TickCount64;
             _schedule.Configure(Plugin.Configuration.ScheduledPinchEnabled,
-                Plugin.Configuration.ScheduledPinchIntervalMinutes, now);
+                Plugin.Configuration.ScheduledPinchIntervalMinutes, now, Plugin.Configuration.ScheduledPinchRandomExtraMinutes);
             if (_taskFailure != null)
             {
                 var failure = _taskFailure;
@@ -253,12 +253,19 @@ internal sealed partial class AutoPinch
             Plugin.Configuration.Save();
         }
         var minutes = Plugin.Configuration.ScheduledPinchIntervalMinutes;
-        if (ImGui.InputInt("Interval (minutes)", ref minutes))
+        if (ImGui.SliderInt("Frequency (minutes)", ref minutes, 1, 10080, "%d", ImGuiSliderFlags.Logarithmic))
         {
             Plugin.Configuration.ScheduledPinchIntervalMinutes = Math.Clamp(minutes, 1, 10080);
             Plugin.Configuration.Save();
         }
-        ImGui.TextUnformatted("60 minutes = 1 hour. Interval starts after each completed run.");
+        var randomExtra = Plugin.Configuration.ScheduledPinchRandomExtraMinutes;
+        if (ImGui.SliderInt("Random extra delay (minutes)", ref randomExtra, 0, 1440, "%d", ImGuiSliderFlags.Logarithmic))
+        {
+            Plugin.Configuration.ScheduledPinchRandomExtraMinutes = Math.Clamp(randomExtra, 0, 1440);
+            Plugin.Configuration.Save();
+        }
+        ImGui.TextUnformatted("Ctrl+click a slider to type an exact value. 60 minutes = 1 hour.");
+        ImGui.TextWrapped($"After each completed run: wait {Plugin.Configuration.ScheduledPinchIntervalMinutes} to {Plugin.Configuration.ScheduledPinchIntervalMinutes + Plugin.Configuration.ScheduledPinchRandomExtraMinutes} minutes. A fresh random extra delay is chosen once per cycle; 0 disables randomness. Run now starts immediately when available.");
         ImGui.TextWrapped("Park within reach of a summoning bell with menus closed. No walking or teleporting is performed. Busy characters wait; cancellation, interruptions, and errors pause scheduling.");
         var status = !_schedule.Enabled ? "Disabled" : _schedule.PauseReason
             ?? (_schedule.Running || _schedule.IsDue(Environment.TickCount64) ? _scheduleStatus : "Waiting for next scheduled run");

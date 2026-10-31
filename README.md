@@ -100,7 +100,7 @@ During an Auto Pinch run, Dagobert remembers the first valid price for each item
 
 ## Scheduled Auto Pinch
 
-Open `/dagobert` → **Scheduled Auto Pinch**. Scheduling is off by default. Enable it, choose an interval in minutes (60 = one hour; supported range 1 minute to 7 days), and park within interaction range of a summoning bell with menus closed. Use **Run now** for an immediate first cycle; otherwise the first cycle waits the configured interval.
+Open `/dagobert` → **Scheduled Auto Pinch**. Scheduling is off by default. Enable it, choose a frequency with the slider in minutes (60 = one hour; supported range 1 minute to 7 days), and park within interaction range of a summoning bell with menus closed. Use **Run now** for an immediate first cycle; otherwise the first cycle waits the configured interval.
 
 A cycle opens the nearby bell, processes your enabled retainers, and closes the retainer list. The next interval starts after that cycle finishes. It never walks, teleports, or attempts to find a bell outside interaction range. If you are busy, moving, or no bell is reachable, it waits and checks again rather than accumulating missed cycles. It cannot start while the retainer list or another occupied interaction is already open; finish that interaction first.
 
@@ -115,3 +115,5 @@ Build validation uses the normal Release build. Scheduling checks run with:
 ```sh
 dotnet run --project Dagobert.Checks
 ```
+
+The **Random extra delay** slider adds a uniformly selected extra wait from 0 up to the configured maximum (0–1440 minutes). For example, a 60-minute frequency plus up to 10 random minutes produces a fresh wait between 60 and 70 minutes after each completed cycle. Zero disables randomness. The countdown shows the selected wait. Resume and changing frequency/randomness choose a new wait; Run now bypasses it. Ctrl+click either slider to type an exact value.

@@ -51,6 +51,8 @@ public sealed class Configuration : IPluginConfiguration
 
   public int ScheduledPinchIntervalMinutes { get; set; } = 60;
 
+  public int ScheduledPinchRandomExtraMinutes { get; set; } = 0;
+
   public bool HQ { get; set; } = true;
 
   public int GetMBPricesDelayMS { get; set; } = 3000;

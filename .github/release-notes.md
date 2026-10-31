@@ -1,10 +1,5 @@
-Added opt-in scheduled Auto Pinch. Configure it in `/dagobert` → Scheduled Auto Pinch, set an interval, and park within reach of a summoning bell with menus closed.
+Added scheduling frequency and random extra delay sliders in `/dagobert` → Scheduled Auto Pinch.
 
-- Opens a nearby bell and processes enabled retainers without a button press each cycle.
-- Includes countdown, Run Now, Pause/Resume, and Cancel and pause.
-- Starts the next interval after the current cycle finishes; missed intervals do not accumulate.
-- Waits while busy or out of bell range; pauses on errors, timeouts, or interruptions during a run.
-- Fetches fresh prices each cycle while keeping the duplicate-item cache within a run.
-- Restores acquired AutoRetainer/modern YesAlready coordination on completion or cancellation.
+A frequency of 60 minutes plus up to 10 minutes of random extra delay chooses a fresh wait between 60 and 70 minutes after each completed cycle. Zero extra delay preserves fixed timing. The countdown reflects the chosen wait; Run Now bypasses it. Ctrl+click sliders to enter exact values.
 
-Built against Dalamud API 15. Automated scheduling checks pass; bell interaction and repeated in-game cycles still require testing.
+Release build and 20 scheduling checks pass. In-game scheduling and bell interaction still require testing.
