@@ -35,6 +35,22 @@ jobs:
           name: Dagobert
           path: Dagobert/bin/x64/Release/Dagobert/*
           if-no-files-found: error
+      - name: Update Dalamud installation repository
+        shell: pwsh
+        run: |
+          git fetch origin master
+          git checkout -B repository-update origin/master
+          python scripts/update_plugin_repository.py --package-dir Dagobert/bin/x64/Release/Dagobert
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pluginmaster.json plugins/Dagobert
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) { exit 0 }
+          git commit -m "Update Dalamud plugin repository package"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin HEAD:master
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Create test release in this repository
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh

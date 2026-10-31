@@ -7,8 +7,12 @@ FFXIV Dalamud plugin for automatically adjusting retainer Market Board prices.
 Add this repository to your Dalamud custom plugin repositories:
 
 ```text
-https://raw.githubusercontent.com/SHOEGAZEssb/DalamudPluginRepo/master/pluginmaster.json
+https://raw.githubusercontent.com/Isaiahfeldt/Dagobert/master/pluginmaster.json
 ```
+
+Install Dagobert from that custom repository in `/xlplugins`. If you already have the original version installed, uninstall it first and select the entry from this repository. Back up your plugin configuration before switching.
+
+This fork includes cached prices for duplicate items. Its package builds against Dalamud API 15; in-game behavior still needs testing.
 
 Open the configuration window with `/dagobert`.
 
