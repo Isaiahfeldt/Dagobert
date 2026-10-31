@@ -235,12 +235,20 @@ namespace Dagobert
         var retainerList = new AddonMaster.RetainerList(addon);
         var retainers = retainerList.Retainers;
         var num = retainers.Length;
+        var enabledRetainerNames = _schedule.Running
+          ? Plugin.Configuration.ScheduledRetainerSelection : Plugin.Configuration.EnabledRetainerNames;
+        var currentNames = retainers.Select(retainer => retainer.Name).ToList();
+        if (!Plugin.Configuration.LastKnownRetainerNames.SequenceEqual(currentNames))
+        {
+          Plugin.Configuration.LastKnownRetainerNames = currentNames;
+          Plugin.Configuration.Save();
+        }
         if (_schedule.Running && !retainers.Any(retainer =>
-            Plugin.Configuration.EnabledRetainerNames.Count == 0 || Plugin.Configuration.EnabledRetainerNames.Contains(retainer.Name)))
+            enabledRetainerNames.Count == 0 || enabledRetainerNames.Contains(retainer.Name)))
           throw new InvalidOperationException("No enabled retainers are available for scheduled Auto Pinch");
         
         // Check if all are disabled (sentinel present)
-        bool allDisabled = Plugin.Configuration.EnabledRetainerNames.Contains(Configuration.ALL_DISABLED_SENTINEL);
+        bool allDisabled = enabledRetainerNames.Contains(Configuration.ALL_DISABLED_SENTINEL);
         
         // If all are disabled, skip all retainers and notify user
         if (allDisabled)
@@ -250,14 +258,14 @@ namespace Dagobert
         else
         {
           // If no retainers are explicitly enabled, enable all by default
-          bool allEnabled = Plugin.Configuration.EnabledRetainerNames.Count == 0;
+          bool allEnabled = enabledRetainerNames.Count == 0;
           
           for (int i = 0; i < num; i++)
           {
             var retainerName = retainers[i].Name;
             
             // Skip retainers that are excluded in configuration
-            if (!allEnabled && !Plugin.Configuration.EnabledRetainerNames.Contains(retainerName))
+            if (!allEnabled && !enabledRetainerNames.Contains(retainerName))
             {
               Svc.Log.Debug($"Skipping retainer '{retainerName}' (excluded by user configuration)");
               continue;

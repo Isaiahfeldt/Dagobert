@@ -108,9 +108,14 @@ public sealed class Configuration : IPluginConfiguration
   /// If empty or null, all retainers are enabled by default.
   /// If contains ALL_DISABLED_SENTINEL, all retainers are disabled.
   /// </summary>
-  public const string ALL_DISABLED_SENTINEL = "__ALL_DISABLED__";
+  public const string ALL_DISABLED_SENTINEL = RetainerSelection.None;
   
   public HashSet<string> EnabledRetainerNames { get; set; } = [];
+
+  // Null preserves existing users' manual selection until they customize scheduling.
+  public HashSet<string>? ScheduledEnabledRetainerNames { get; set; }
+
+  internal HashSet<string> ScheduledRetainerSelection => ScheduledEnabledRetainerNames ?? EnabledRetainerNames;
 
   /// <summary>
   /// List of retainer names that were last fetched from the game.

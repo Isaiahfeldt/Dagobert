@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Dagobert/RetainerSelection.cs" Link="RetainerSelection.cs" />
     <Compile Include="../Dagobert/BellSelection.cs" Link="BellSelection.cs" />
     <Compile Include="../Dagobert/PinchSchedule.cs" Link="PinchSchedule.cs" />
   </ItemGroup>

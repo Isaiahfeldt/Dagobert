@@ -9,6 +9,7 @@ using Dalamud.Plugin.Services;
 using ECommons;
 using ECommons.DalamudServices;
 using ECommons.ExcelServices.TerritoryEnumeration;
+using ECommons.UIHelpers.AddonMasterImplementations;
 using IGameObject = Dalamud.Game.ClientState.Objects.Types.IGameObject;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
@@ -94,9 +95,9 @@ internal sealed partial class AutoPinch
                 if (AutoRetainerIPC.Instance == null) AutoRetainerIPC.Initialize();
                 // Suppression is not a busy signal; retain and restore the existing state.
             }
-            if (Plugin.Configuration.EnabledRetainerNames.Contains(Configuration.ALL_DISABLED_SENTINEL))
+            if (Plugin.Configuration.ScheduledRetainerSelection.Contains(Configuration.ALL_DISABLED_SENTINEL))
             {
-                _schedule.Pause("No retainers are enabled");
+                _schedule.Pause("No retainers are enabled for scheduled Auto Pinch");
                 return;
             }
             if (FindReachableBell() == null) { _scheduleStatus = DescribeBellSearch(); return; }
@@ -285,6 +286,55 @@ internal sealed partial class AutoPinch
     private void QueueInsert(Func<bool?> action, string? name = null) => _taskManager.Insert(Guard(action), name);
     private void QueueInsert(Action action, string? name = null) => QueueInsert(() => { action(); return true; }, name);
 
+    private unsafe void DrawScheduledRetainers()
+    {
+        ImGui.Separator();
+        ImGui.TextUnformatted("Retainers for automatic runs");
+        var config = Plugin.Configuration;
+        if (RetainerListReady() && GenericHelpers.TryGetAddonByName<AtkUnitBase>("RetainerList", out var addon))
+        {
+            var names = new AddonMaster.RetainerList(addon).Retainers.Select(retainer => retainer.Name).ToList();
+            if (!config.LastKnownRetainerNames.SequenceEqual(names))
+            {
+                config.LastKnownRetainerNames = names;
+                config.Save();
+            }
+        }
+        ImGui.TextWrapped(config.ScheduledEnabledRetainerNames == null
+            ? "Currently follows your General-tab selection. Changing a checkbox creates an independent automatic selection."
+            : "This selection applies only to automatic runs, including Run now. Manual Auto Pinch keeps its General-tab selection. Changes apply to the next cycle.");
+        if (ImGui.Button("Enable all##scheduled"))
+        {
+            config.ScheduledEnabledRetainerNames = [];
+            config.Save();
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Disable all##scheduled"))
+        {
+            config.ScheduledEnabledRetainerNames = [RetainerSelection.None];
+            config.Save();
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Use manual selection##scheduled"))
+        {
+            config.ScheduledEnabledRetainerNames = null;
+            config.Save();
+        }
+        if (config.LastKnownRetainerNames.Count == 0)
+            ImGui.TextWrapped("Open the summoning bell's retainer list once to populate the names here.");
+        foreach (var name in config.LastKnownRetainerNames)
+        {
+            var selected = RetainerSelection.IsEnabled(config.ScheduledRetainerSelection, name);
+            if (ImGui.Checkbox($"{name}##scheduledRetainer", ref selected))
+            {
+                config.ScheduledEnabledRetainerNames = RetainerSelection.WithEnabled(
+                    config.ScheduledRetainerSelection, config.LastKnownRetainerNames, name, selected);
+                config.Save();
+            }
+        }
+        ImGui.Separator();
+    }
+
     internal void DrawScheduleSettings()
     {
         var enabled = Plugin.Configuration.ScheduledPinchEnabled;
@@ -305,6 +355,7 @@ internal sealed partial class AutoPinch
             Plugin.Configuration.ScheduledPinchRandomExtraMinutes = Math.Clamp(randomExtra, 0, 1440);
             Plugin.Configuration.Save();
         }
+        DrawScheduledRetainers();
         ImGui.TextUnformatted("Ctrl+click a slider to type an exact value. 60 minutes = 1 hour.");
         ImGui.TextWrapped($"After each completed run: wait {Plugin.Configuration.ScheduledPinchIntervalMinutes} to {Plugin.Configuration.ScheduledPinchIntervalMinutes + Plugin.Configuration.ScheduledPinchRandomExtraMinutes} minutes. A fresh random extra delay is chosen once per cycle; 0 disables randomness. Run now starts immediately when available.");
         ImGui.TextWrapped("Park within reach of a summoning bell with menus closed. No walking or teleporting is performed. Busy characters wait; cancellation, interruptions, and errors pause scheduling.");

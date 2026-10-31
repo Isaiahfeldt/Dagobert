@@ -163,4 +163,37 @@ Check("Run Now survives a settings change immediately before the request", () =>
     s.Configure(true, 30, 101, 5);
     Expect(s.IsDue(101), true);
 });
-Console.WriteLine($"{passed} scheduling and bell-selection checks passed.");
+Check("Automatic retainer customization preserves manual selection", () =>
+{
+    var manual = new HashSet<string>();
+    var automatic = RetainerSelection.WithEnabled(manual, ["A", "B"], "A", false);
+    Expect(RetainerSelection.IsEnabled(automatic, "A"), false);
+    Expect(RetainerSelection.IsEnabled(automatic, "B"), true);
+    Expect(RetainerSelection.IsEnabled(manual, "A"), true);
+});
+Check("Automatic selection can enable a manually excluded retainer", () =>
+{
+    var manual = new HashSet<string> { "A" };
+    var automatic = RetainerSelection.WithEnabled(manual, ["A", "B"], "B", true);
+    Expect(RetainerSelection.IsEnabled(automatic, "B"), true);
+    Expect(RetainerSelection.IsEnabled(manual, "B"), false);
+});
+Check("Disabling the final automatic retainer means none, not all", () =>
+{
+    var automatic = RetainerSelection.WithEnabled([], ["A"], "A", false);
+    Expect(RetainerSelection.IsEnabled(automatic, "A"), false);
+    Expect(RetainerSelection.IsEnabled(automatic, "New retainer"), false);
+});
+Check("A retainer can be enabled again after disabling all", () =>
+{
+    var automatic = RetainerSelection.WithEnabled([RetainerSelection.None], ["A", "B"], "A", true);
+    Expect(RetainerSelection.IsEnabled(automatic, "A"), true);
+    Expect(RetainerSelection.IsEnabled(automatic, "B"), false);
+});
+Check("Explicit automatic selections preserve names not currently displayed", () =>
+{
+    var automatic = RetainerSelection.WithEnabled(["A", "Other character"], ["A", "B"], "A", false);
+    Expect(RetainerSelection.IsEnabled(automatic, "Other character"), true);
+    Expect(RetainerSelection.IsEnabled(automatic, "A"), false);
+});
+Console.WriteLine($"{passed} scheduling, bell, and retainer-selection checks passed.");

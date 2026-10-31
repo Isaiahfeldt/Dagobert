@@ -13,5 +13,5 @@
   "ImageUrls": [
     ""
   ],
-  "Changelog": "Fixed scheduled Auto Pinch failing to recognize title-case bell names. Added standard bell ID recognition and inn interaction range, separated targeting from interaction, and wait/retry until the retainer list opens. Existing AutoRetainer suppression no longer blocks runs. Improved waiting/task status."
+  "Changelog": "Added independent per-retainer checkboxes for scheduled Auto Pinch, including Run Now, plus Enable All, Disable All, and Use Manual Selection. Existing selections are preserved until customized."
 }
