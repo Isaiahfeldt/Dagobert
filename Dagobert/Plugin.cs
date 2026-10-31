@@ -33,6 +33,7 @@ public sealed class Plugin : IDalamudPlugin
 #pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 
   private readonly AutoPinch _autoPinch;
+  internal static System.Action? SchedulerUi;
 
   public readonly WindowSystem WindowSystem = new("Dagobert");
   private ConfigWindow ConfigWindow { get; init; }
@@ -58,6 +59,7 @@ public sealed class Plugin : IDalamudPlugin
 
     ECommonsMain.Init(PluginInterface, this);
     _autoPinch = new AutoPinch();
+    SchedulerUi = _autoPinch.DrawScheduleSettings;
     WindowSystem.AddWindow(_autoPinch);
     AutoRetainerIPC.Initialize();
   }
@@ -65,6 +67,7 @@ public sealed class Plugin : IDalamudPlugin
   public void Dispose()
   {
     WindowSystem.RemoveAllWindows();
+    SchedulerUi = null;
     _autoPinch.Dispose();
     CommandManager.RemoveHandler("/dagobert");
     ContextMenu.OnMenuOpened -= OnContextMenuOpened;

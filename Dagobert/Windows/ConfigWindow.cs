@@ -35,6 +35,12 @@ public sealed class ConfigWindow : Window
       ImGui.EndTabItem();
     }
 
+    if (ImGui.BeginTabItem("Scheduled Auto Pinch"))
+    {
+      Plugin.SchedulerUi?.Invoke();
+      ImGui.EndTabItem();
+    }
+
     ImGui.EndTabBar();
   }
 

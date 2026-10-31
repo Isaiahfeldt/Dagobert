@@ -13,5 +13,5 @@
   "ImageUrls": [
     ""
   ],
-  "Changelog": ""
+  "Changelog": "Added opt-in scheduled Auto Pinch with a configurable interval, nearby summoning-bell interaction, countdown, Run Now, Pause/Resume, and cancellation/error cleanup. Each cycle fetches fresh prices while reusing duplicate-item prices within the run."
 }

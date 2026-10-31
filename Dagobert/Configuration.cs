@@ -47,6 +47,10 @@ public sealed class Configuration : IPluginConfiguration
 {
   public int Version { get; set; } = 0;
 
+  public bool ScheduledPinchEnabled { get; set; } = false;
+
+  public int ScheduledPinchIntervalMinutes { get; set; } = 60;
+
   public bool HQ { get; set; } = true;
 
   public int GetMBPricesDelayMS { get; set; } = 3000;

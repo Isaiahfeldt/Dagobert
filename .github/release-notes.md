@@ -1,5 +1,10 @@
-Auto Pinch caches the first valid price for duplicate items during a run and skips repeated marketboard lookups and delays. HQ and NQ remain separate, and every listing still gets its own price limits and maximum-undercut safety check.
+Added opt-in scheduled Auto Pinch. Configure it in `/dagobert` → Scheduled Auto Pinch, set an interval, and park within reach of a summoning bell with menus closed.
 
-Updated ECommons for compatibility with current stable Dalamud. This package compiles against Dalamud API 15; in-game behavior still needs testing.
+- Opens a nearby bell and processes enabled retainers without a button press each cycle.
+- Includes countdown, Run Now, Pause/Resume, and Cancel and pause.
+- Starts the next interval after the current cycle finishes; missed intervals do not accumulate.
+- Waits while busy or out of bell range; pauses on errors, timeouts, or interruptions during a run.
+- Fetches fresh prices each cycle while keeping the duplicate-item cache within a run.
+- Restores acquired AutoRetainer/modern YesAlready coordination on completion or cancellation.
 
-To test: extract latest.zip to a permanent folder, disable the normally installed Dagobert, add the extracted Dagobert.dll to Dalamud Dev Plugin Locations, and load it through the developer plugin tools. Check duplicate listings, HQ/NQ separation, and a fresh lookup when starting another Auto Pinch run.
+Built against Dalamud API 15. Automated scheduling checks pass; bell interaction and repeated in-game cycles still require testing.

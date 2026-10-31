@@ -28,6 +28,8 @@ jobs:
           "DALAMUD_HOME=$dalamud" >> $env:GITHUB_ENV
       - name: Restore locked packages
         run: dotnet restore Dagobert.sln --locked-mode
+      - name: Check scheduling behavior
+        run: dotnet run --project Dagobert.Checks -c Release
       - name: Build plugin
         run: dotnet build Dagobert/Dagobert.csproj --no-restore -c Release -p:Platform=x64
       - uses: actions/upload-artifact@v4

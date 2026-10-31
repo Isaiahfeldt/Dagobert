@@ -7,7 +7,7 @@ FFXIV Dalamud plugin for automatically adjusting retainer Market Board prices.
 Add this repository to your Dalamud custom plugin repositories:
 
 ```text
-https://raw.githubusercontent.com/Isaiahfeldt/Dagobert/master/pluginmaster.json
+https://raw.githubusercontent.com/Isaiahfeldt/ffxiv/main/pluginmaster.json
 ```
 
 Install Dagobert from that custom repository in `/xlplugins`. If you already have the original version installed, uninstall it first and select the entry from this repository. Back up your plugin configuration before switching.
@@ -97,3 +97,21 @@ The Text-to-Speech options are shown when Windows TTS is available.
 Dagobert adds an `Auto Pinch` button to the retainer list and retainer sell list. While Auto Pinch is running, avoid interacting with the game until it finishes or you press `Cancel`.
 
 During an Auto Pinch run, Dagobert remembers the first valid price for each item and reuses it for duplicate listings, skipping the marketboard lookup and its delays. HQ and NQ items are cached separately. Each listing still uses its own min/max limits and maximum-undercut safety check. The cache is cleared when you start a new Auto Pinch run.
+
+## Scheduled Auto Pinch
+
+Open `/dagobert` → **Scheduled Auto Pinch**. Scheduling is off by default. Enable it, choose an interval in minutes (60 = one hour; supported range 1 minute to 7 days), and park within interaction range of a summoning bell with menus closed. Use **Run now** for an immediate first cycle; otherwise the first cycle waits the configured interval.
+
+A cycle opens the nearby bell, processes your enabled retainers, and closes the retainer list. The next interval starts after that cycle finishes. It never walks, teleports, or attempts to find a bell outside interaction range. If you are busy, moving, or no bell is reachable, it waits and checks again rather than accumulating missed cycles. It cannot start while the retainer list or another occupied interaction is already open; finish that interaction first.
+
+Each cycle clears the item-price cache, so it fetches current prices while duplicates within that cycle use the existing cache. Pricing limits and maximum-undercut safeguards still apply to every listing. A run completing with skipped listings still counts as a completed cycle.
+
+**Cancel and pause** stops the current task queue and pauses the schedule. Errors, timeouts, combat, movement, logout, or territory/character changes during a scheduled cycle also pause it; the settings show the reason. Cancellation leaves any already-open menus for you to close. Use **Resume** to wait a fresh interval, or **Run now** to try again once available. Pause state is for the current plugin session; saved scheduling enablement and interval survive reloads.
+
+The plugin coordinates with AutoRetainer through its suppression IPC and with modern YesAlready through its stop-request mechanism. It restores the AutoRetainer suppression state it observed when acquiring the lock; no unsupported legacy YesAlready reflection is used. Do not start competing retainer automation during a cycle. Third-party plugin coordination and bell interactions require in-game testing.
+
+Build validation uses the normal Release build. Scheduling checks run with:
+
+```sh
+dotnet run --project Dagobert.Checks
+```
