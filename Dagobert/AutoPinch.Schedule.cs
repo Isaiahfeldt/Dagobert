@@ -30,6 +30,7 @@ internal sealed partial class AutoPinch
     private string _scheduleStatus = "Disabled";
     private string? _taskFailure;
     private long _nextBellAttempt;
+    private long _nextCloseAttempt;
     private long _nextAvailabilityCheck;
     private ulong _scheduledCharacter;
     private uint _scheduledTerritory;
@@ -107,6 +108,7 @@ internal sealed partial class AutoPinch
             _schedule.Start();
             _scheduleStatus = "Opening summoning bell";
             _nextBellAttempt = 0;
+            _nextCloseAttempt = 0;
             Queue(OpenScheduledBell, "OpenScheduledBell");
             Queue(WaitForRetainerList, "WaitForRetainerList");
         }
@@ -160,10 +162,14 @@ internal sealed partial class AutoPinch
 
     private unsafe bool? CloseScheduledRetainerList()
     {
-        if (!GenericHelpers.TryGetAddonByName<AtkUnitBase>("RetainerList", out var addon)) return true;
+        if (!GenericHelpers.TryGetAddonByName<AtkUnitBase>("RetainerList", out var addon) || !addon->IsVisible)
+            return !Svc.Condition[ConditionFlag.OccupiedSummoningBell];
         if (!GenericHelpers.IsAddonReady(addon)) return false;
-        if (!addon->IsVisible) return true;
-        addon->Close(true);
+        if (Environment.TickCount64 < _nextCloseAttempt) return false;
+        // Send Quit rather than just hiding the addon, so the bell interaction ends.
+        var value = new AtkValue { Type = AtkValueType.Int, Int = -1 };
+        addon->FireCallback(1, &value);
+        _nextCloseAttempt = Environment.TickCount64 + 500;
         _scheduleStatus = "Finishing scheduled run";
         return false;
     }
