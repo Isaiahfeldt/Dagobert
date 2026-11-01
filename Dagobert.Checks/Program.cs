@@ -196,4 +196,41 @@ Check("Explicit automatic selections preserve names not currently displayed", ()
     Expect(RetainerSelection.IsEnabled(automatic, "Other character"), true);
     Expect(RetainerSelection.IsEnabled(automatic, "A"), false);
 });
-Console.WriteLine($"{passed} scheduling, bell, and retainer-selection checks passed.");
+Check("Price cannot be applied before its response is accepted", () =>
+{
+    var g = new PriceRequestGuard(); var beam = new PriceIdentity(100, false);
+    g.Begin(beam); Expect(g.CanApply(beam), false);
+});
+Check("An altar price cannot be accepted or applied to a beam", () =>
+{
+    var g = new PriceRequestGuard(); var beam = new PriceIdentity(100, false); var altar = new PriceIdentity(200, false);
+    var token = g.Begin(beam);
+    Expect(g.Accept(token, altar), false); Expect(g.CanApply(beam), false);
+    Expect(g.Accept(token, beam), true); Expect(g.CanApply(altar), false); Expect(g.CanApply(beam), true);
+});
+Check("HQ and NQ identities are separate", () =>
+{
+    var g = new PriceRequestGuard(); var nq = new PriceIdentity(100, false); var hq = new PriceIdentity(100, true);
+    var token = g.Begin(hq); Expect(g.Accept(token, nq), false);
+    Expect(g.Accept(token, hq), true); Expect(g.CanApply(nq), false);
+});
+Check("Late responses from the previous item cannot replace the current result", () =>
+{
+    var g = new PriceRequestGuard(); var a = new PriceIdentity(100, false); var b = new PriceIdentity(200, false);
+    var old = g.Begin(a); var current = g.Begin(b);
+    Expect(g.Accept(old, a), false); Expect(g.CanApply(b), false);
+    Expect(g.Accept(current, b), true); Expect(g.CanApply(b), true);
+});
+Check("Cancelled runs reject late responses even for the same item", () =>
+{
+    var g = new PriceRequestGuard(); var item = new PriceIdentity(100, false);
+    var old = g.Begin(item); g.Cancel(); var current = g.Begin(item);
+    Expect(g.Accept(old, item), false); Expect(g.Accept(current, item), true);
+    g.Cancel(); Expect(g.CanApply(item), false);
+});
+Check("Unidentified items cannot authorize price changes", () =>
+{
+    var g = new PriceRequestGuard(); var item = new PriceIdentity(0, false);
+    var token = g.Begin(item); Expect(g.Accept(token, item), false); Expect(g.CanApply(item), false);
+});
+Console.WriteLine($"{passed} checks passed, including price identity validation.");

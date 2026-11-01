@@ -251,7 +251,7 @@ internal sealed partial class AutoPinch
     {
         var notify = !_disposed && (_schedule.Running || _manualRunPending);
         _taskManager.Abort();
-        CancelUniversalisPriceRequest();
+        ResetCurrentPrice();
         RemoveTalkAddonListeners();
         ReleaseAutomationLocks();
         _openingBell = false;

@@ -13,5 +13,5 @@
   "ImageUrls": [
     ""
   ],
-  "Changelog": "Added independent per-retainer checkboxes for scheduled Auto Pinch, including Run Now, plus Enable All, Disable All, and Use Manual Selection. Existing selections are preserved until customized."
+  "Changelog": "Validate item ID, HQ/NQ and active request before accepting, caching, or applying prices. Ignore market data for other items and obsolete responses. Stop on identity mismatches. Post-pinch actions now also clear their per-run cache."
 }

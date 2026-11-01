@@ -24,6 +24,16 @@ internal static class ItemNameResolver
     return itemId != 0;
   }
 
+  public static bool TryGetExactMarketItemId(string itemName, out uint itemId)
+  {
+    var normalized = NormalizeItemName(itemName);
+    var matches = Items.Value.Where(item => !item.IsUntradable && item.ItemSearchCategory.RowId != 0
+        && item.Name.GetText().Equals(normalized, StringComparison.OrdinalIgnoreCase))
+      .Select(item => item.RowId).Take(2).ToArray();
+    itemId = matches.Length == 1 ? matches[0] : 0;
+    return itemId != 0;
+  }
+
   public static string GetItemName(uint itemId)
   {
     if (Items.Value.TryGetRow(itemId, out var item))

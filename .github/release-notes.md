@@ -1,5 +1,9 @@
-Added per-retainer settings for automatic Auto Pinch.
+Added identity validation around price caching and application.
 
-Open `/dagobert` → Scheduled Auto Pinch → Retainers for automatic runs. Timer cycles and Run Now use this list; manual Auto Pinch keeps its General-tab settings. Existing configurations follow the manual selection until customized. Includes Enable All, Disable All, and Use Manual Selection controls. Open the retainer list once if names are missing.
+- Key cached values by exact marketable item ID and HQ/NQ.
+- Bind requests and responses to an active generation; ignore wrong-item marketboard batches and obsolete callbacks.
+- Check the open listing before caching or applying a price; stop on mismatches or ambiguous identity.
+- Clear the cache for post-pinch actions as well as main/scheduled runs.
+- Preserve pending responses when waiting for the adjustment window instead of clearing them on every retry.
 
-Release build and 33 automated checks pass. In-game validation of the new selection controls remains outstanding.
+Build and 39 checks pass. In-game regression testing remains necessary; this addresses verified validation gaps without claiming the original incorrect-price report is fully explained.

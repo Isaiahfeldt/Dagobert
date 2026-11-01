@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 
-namespace Dagobert
+namespace Dagobert;
+
+internal sealed class NewPriceEventArgs(int newPrice, PriceIdentity identity, long generation) : EventArgs
 {
-  internal sealed class NewPriceEventArgs(int newPrice) : EventArgs
-  {
     public int NewPrice { get; } = newPrice;
-  }
+    public PriceIdentity Identity { get; } = identity;
+    public long Generation { get; } = generation;
 }

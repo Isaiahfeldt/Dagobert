@@ -18,22 +18,30 @@ namespace Dagobert
     private readonly Lumina.Excel.ExcelSheet<Item> _items;
     private bool _newRequest;
     private bool _useHq;
-    private bool _itemHq;
     private int _lastRequestId = UnknownRequestId;
     private int _pendingNoMatchRequestId = UnknownRequestId;
     private long _pendingNoMatchTimeoutAt;
     private long _pendingNoOfferingsTimeoutAt;
 
-    private int NewPrice
+    private PriceIdentity _expectedIdentity;
+    private long _generation;
+
+    public void BeginRequest(PriceIdentity identity, long generation)
     {
-      get => _newPrice;
-      set
-      {
-        _newPrice = value;
-        NewPriceReceived?.Invoke(this, new NewPriceEventArgs(NewPrice));
-      }
+      CancelRequest();
+      _expectedIdentity = identity;
+      _generation = generation;
+      _newRequest = true;
+      _useHq = Plugin.Configuration.HQ && identity.IsHq;
+      _pendingNoOfferingsTimeoutAt = Environment.TickCount64 + GetMarketBoardResultTimeoutMs();
     }
-    private int _newPrice;
+
+    public void CancelRequest()
+    {
+      _newRequest = false;
+      ClearPendingNoMatch();
+      ClearPendingNoOfferings();
+    }
 
     public event EventHandler<NewPriceEventArgs>? NewPriceReceived;
 
@@ -44,7 +52,6 @@ namespace Dagobert
       Plugin.MarketBoard.OfferingsReceived += MarketBoardOnOfferingsReceived;
       Svc.Framework.Update += FrameworkOnUpdate;
 
-      Plugin.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "RetainerSell", AddonRetainerSellPostSetup);
       Plugin.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "ItemSearchResult", ItemSearchResultPostSetup);
     }
 
@@ -52,7 +59,6 @@ namespace Dagobert
     {
       Plugin.MarketBoard.OfferingsReceived -= MarketBoardOnOfferingsReceived;
       Svc.Framework.Update -= FrameworkOnUpdate;
-      Plugin.AddonLifecycle.UnregisterListener(AddonEvent.PostSetup, "RetainerSell", AddonRetainerSellPostSetup);
       Plugin.AddonLifecycle.UnregisterListener(AddonEvent.PostSetup, "ItemSearchResult", ItemSearchResultPostSetup);
     }
 
@@ -64,14 +70,13 @@ namespace Dagobert
       if (currentOfferings.RequestId == _lastRequestId)
         return;
 
-      ClearPendingNoOfferings();
-
-      if (currentOfferings.ItemListings.Count == 0)
-      {
-        CompletePriceRequest(-1, currentOfferings.RequestId);
+      // Network batches carry item IDs: never attach another item's response to this request.
+      // Empty batches have no identity, so let the bounded timeout handle them.
+      if (currentOfferings.ItemListings.Count == 0
+          || currentOfferings.ItemListings.Any(listing => listing.ItemId != _expectedIdentity.ItemId))
         return;
-      }
 
+      ClearPendingNoOfferings();
       var skipNq = _useHq && _items.Single(j => j.RowId == currentOfferings.ItemListings[0].ItemId).CanBeHq;
       var i = 0;
       while (i < currentOfferings.ItemListings.Count)
@@ -132,16 +137,9 @@ namespace Dagobert
 
     private void ItemSearchResultPostSetup(AddonEvent type, AddonArgs args)
     {
-      _newRequest = true;
-      _useHq = Plugin.Configuration.HQ && _itemHq;
-      ClearPendingNoMatch();
+      // Only an explicit BeginRequest arms a lookup; unrelated result windows cannot.
+      if (!_newRequest) return;
       _pendingNoOfferingsTimeoutAt = Environment.TickCount64 + GetMarketBoardResultTimeoutMs();
-    }
-
-    private unsafe void AddonRetainerSellPostSetup(AddonEvent type, AddonArgs args)
-    {
-      string nodeText = ((AddonRetainerSell*)args.Addon.Address)->ItemName->NodeText.ToString();
-      _itemHq = nodeText.Contains('\uE03C');
     }
 
     public void PopulateRetainerCache()
@@ -174,7 +172,7 @@ namespace Dagobert
       if (requestId >= 0)
         _lastRequestId = requestId;
       _newRequest = false;
-      NewPrice = price;
+      NewPriceReceived?.Invoke(this, new NewPriceEventArgs(price, _expectedIdentity, _generation));
     }
 
     private void ClearPendingNoMatch()
