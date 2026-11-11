@@ -132,6 +132,47 @@ public sealed class ConfigWindow : Window
       ImGui.EndTooltip();
     }
 
+    var maxUndercutAmount = Plugin.Configuration.MaxUndercutAmount;
+    if (ImGui.InputInt("Max Undercut amount (gil)", ref maxUndercutAmount))
+    {
+      Plugin.Configuration.MaxUndercutAmount = Math.Clamp(maxUndercutAmount, 0, int.MaxValue);
+      Plugin.Configuration.Save();
+    }
+    if (ImGui.IsItemHovered())
+    {
+      ImGui.BeginTooltip();
+      ImGui.SetTooltip("Price reductions exceeding this gil amount or the percentage limit are skipped. 0 disables the gil limit.");
+      ImGui.EndTooltip();
+    }
+
+    var allowPriceIncreases = Plugin.Configuration.AllowPriceIncreases;
+    if (ImGui.Checkbox("Allow price increases", ref allowPriceIncreases))
+    {
+      Plugin.Configuration.AllowPriceIncreases = allowPriceIncreases;
+      Plugin.Configuration.Save();
+    }
+    if (ImGui.IsItemHovered())
+    {
+      ImGui.BeginTooltip();
+      ImGui.SetTooltip("If unchecked, automatic price adjustments never exceed the current asking price, even when a per-item minimum is higher.");
+      ImGui.EndTooltip();
+    }
+
+    ImGui.BeginDisabled(!allowPriceIncreases);
+    var maxPriceIncrease = Plugin.Configuration.MaxPriceIncreasePercentage;
+    if (ImGui.InputFloat("Max Price Increase (%)", ref maxPriceIncrease) && float.IsFinite(maxPriceIncrease))
+    {
+      Plugin.Configuration.MaxPriceIncreasePercentage = Math.Clamp(maxPriceIncrease, 0, 100f * int.MaxValue);
+      Plugin.Configuration.Save();
+    }
+    if (ImGui.IsItemHovered())
+    {
+      ImGui.BeginTooltip();
+      ImGui.SetTooltip("Increases above this percentage leave the current asking price unchanged, including increases from per-item minimums. 0 means unlimited.");
+      ImGui.EndTooltip();
+    }
+    ImGui.EndDisabled();
+
     var undercutSelf = Plugin.Configuration.UndercutSelf;
     if (ImGui.Checkbox("Undercut Self", ref undercutSelf))
     {
@@ -433,7 +474,7 @@ public sealed class ConfigWindow : Window
     if (ImGui.IsItemHovered())
     {
       ImGui.BeginTooltip();
-      ImGui.SetTooltip("If enabled allows you to press a specified key to start the auto pinching process.");
+      ImGui.SetTooltip("If enabled, press the specified key to start Auto Pinch. Press it again to cancel the running process.");
       ImGui.EndTooltip();
     }
 
@@ -455,7 +496,7 @@ public sealed class ConfigWindow : Window
     if (ImGui.IsItemHovered())
     {
       ImGui.BeginTooltip();
-      ImGui.SetTooltip("The key to press to start the auto pinching process.\r\n" +
+      ImGui.SetTooltip("The key to press to start or cancel the auto pinching process.\r\n" +
               "Be aware that the configured key still does every other hotkey action it is configured for.");
       ImGui.EndTooltip();
     }

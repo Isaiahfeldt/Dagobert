@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.NET.Sdk/14.0.1">
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <Import Project="Dalamud.Plugin.Bootstrap.targets" />
 
   <PropertyGroup>
-    <Version>1.14.3.1</Version>
+    <Version>1.15.0.0</Version>
     <Description>Automatically penny pinches all your market board items.</Description>
     <PackageProjectUrl>https://github.com/goatcorp/SamplePlugin</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Content Include="Dagobert.json" />
+    <InternalsVisibleTo Include="Dagobert.Tests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,11 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Speech" Version="10.0.9" />
+    <PackageReference Include="System.Speech" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Update="DalamudPackager" Version="15.0.0" />
-    <PackageReference Update="DotNet.ReproducibleBuilds" Version="2.0.2" />
+    <PackageReference Update="DotNet.ReproducibleBuilds" Version="2.0.5" />
   </ItemGroup>
 </Project>

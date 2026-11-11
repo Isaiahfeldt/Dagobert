@@ -31,6 +31,9 @@ The `/dagobert` configuration window has two tabs:
 | Undercut Mode | FixedAmount | Choose between subtracting a fixed gil amount or a percentage from the lowest price. |
 | Undercut amount | 1 gil | How much to undercut by. In Percentage mode this is 1-99%. |
 | Max Undercut percentage | 100% | Safety limit. Price changes that would cut more than this percentage are skipped. |
+| Max Undercut amount (gil) | 0 gil | Additional safety limit per unit. Reductions exceeding either this amount or the percentage limit are skipped. `0` disables the gil limit. |
+| Allow price increases | On | When off, automatic price adjustments cannot exceed the current asking price, including fallback prices and per-item minimums. |
+| Max Price Increase (%) | 0% | Increases above this percentage leave the current asking price unchanged, including increases from per-item minimums. `0` means unlimited. Requires `Allow price increases`. |
 | Undercut Self | Off | When off, Dagobert will not undercut listings from your own retainers. |
 | Use Universalis data center prices | Off | Uses the cheapest listing on your current data center from Universalis instead of only the in-game Market Board result. |
 | Default amount | 0 gil | Fallback price when no price can be found. `0` disables the fallback. |
@@ -77,7 +80,7 @@ Recommended timing values are around `3000-4000 ms` for the price check delay an
 | --- | --- | --- |
 | Enable Post Pinch Hotkey | On | Lets you hold the configured key while posting a new item to automatically get the lowest price. |
 | Auto Post Pinch Key | Shift | Key used for post pinch. |
-| Enable Pinch Hotkey | Off | Lets you press the configured key to start Auto Pinch from the retainer list or retainer sell list. |
+| Enable Pinch Hotkey | Off | Press the configured key to start Auto Pinch from the retainer list or retainer sell list. Press it again to cancel. Holding the key does not repeat the action. |
 | Auto Pinch Key | Q | Key used for Auto Pinch. |
 
 Configured hotkeys still perform their normal in-game actions.
@@ -125,3 +128,5 @@ Version 1.14.2.2 fixes bell recognition when the displayed name uses different c
 In `/dagobert` → **Scheduled Auto Pinch**, use **Retainers for automatic runs** to choose which retainers are repriced by timer cycles and Run now. Open the bell retainer list once to populate names if needed. Existing configurations initially follow the General-tab manual selection. Editing a scheduled checkbox creates an independent selection without changing manual settings; Use manual selection restores the link. Enable all and Disable all apply only to automation. Changing selection during a run affects the next cycle. If all automatic retainers are disabled, scheduling pauses until you select retainers and use Resume or Run now.
 
 Version 1.14.3.1 binds price lookups to an exact marketable item ID, HQ/NQ identity, and request generation. Only matching network items and active responses are accepted. The open listing is checked again before caching or applying a price; mismatches or ambiguous item identification stop the run. Main, scheduled, and post-pinch runs start with fresh caches. A pending price is preserved while waiting for its adjustment window to become ready. This does not yet replace row-index listing traversal or prove that all causes of incorrect prices have been identified.
+
+Upstream maintenance adds localized mannequin detection, edge-triggered hotkey cancellation, configurable price increases and gil/percentage safeguards. Run NUnit coverage with `dotnet test Dagobert.Tests/Dagobert.Tests.csproj -c Release -p:Use_DalamudPackager=false` in addition to `dotnet run --project Dagobert.Checks`.
