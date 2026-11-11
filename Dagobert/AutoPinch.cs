@@ -14,6 +14,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Common.Math;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Dalamud.Bindings.ImGui;
+using Addon = Lumina.Excel.Sheets.Addon;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,7 +22,6 @@ using System.Speech.Synthesis;
 using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Game.Text.SeStringHandling;
-using static ECommons.UIHelpers.AtkReaderImplementations.ReaderContextMenu;
 
 namespace Dagobert
 {
@@ -39,6 +39,7 @@ namespace Dagobert
     private bool _cachedPricesUseUniversalisDataCenterPrices;
     private int _universalisPriceRequestId;
     private bool _disposed;
+    private bool _pinchKeyWasDown;
     private CancellationTokenSource? _universalisPriceRequestCts;
 
     public AutoPinch()
@@ -79,7 +80,7 @@ namespace Dagobert
         Plugin.Configuration.Save();
       }
 
-      Svc.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, RetainerSellPostSetup);
+      Svc.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "RetainerSell", RetainerSellPostSetup);
       Svc.Framework.Update += UpdateSchedule;
     }
 
@@ -90,7 +91,7 @@ namespace Dagobert
       StopAutomation("Plugin unloaded");
       CancelUniversalisPriceRequest();
       _universalisPriceProvider.Dispose();
-      Svc.AddonLifecycle.UnregisterListener(AddonEvent.PostSetup, RetainerSellPostSetup);
+      Svc.AddonLifecycle.UnregisterListener(AddonEvent.PostSetup, "RetainerSell", RetainerSellPostSetup);
       _mbHandler.NewPriceReceived -= MBHandler_NewPriceReceived;
       _mbHandler.Dispose();
     }
@@ -100,8 +101,14 @@ namespace Dagobert
       try
       {
         ClearCachedPricesIfUniversalisSettingChanged();
-        DrawForRetainerList();
-        DrawForRetainerSellList();
+        var pinchKeyPressed = ConsumePinchKeyPress(Plugin.Configuration.EnablePinchKey && Plugin.KeyState[Plugin.Configuration.PinchKey], ref _pinchKeyWasDown);
+        if (pinchKeyPressed && (_taskManager.IsBusy || _schedule.Running))
+        {
+          CancelAutoPinch();
+          pinchKeyPressed = false;
+        }
+        DrawForRetainerList(pinchKeyPressed);
+        DrawForRetainerSellList(pinchKeyPressed);
       }
       catch (Exception ex)
       {
@@ -114,13 +121,20 @@ namespace Dagobert
       }
     }
 
-    private void DrawForRetainerList()
+    internal static bool ConsumePinchKeyPress(bool keyDown, ref bool wasDown)
+    {
+      var pressed = keyDown && !wasDown;
+      wasDown = keyDown;
+      return pressed;
+    }
+
+    private void DrawForRetainerList(bool pinchKeyPressed)
     {
       unsafe
       {
         if (GenericHelpers.TryGetAddonByName<AtkUnitBase>("RetainerList", out var addon) && GenericHelpers.IsAddonReady(addon))
         {
-          if (Plugin.Configuration.EnablePinchKey && Plugin.KeyState[Plugin.Configuration.PinchKey])
+          if (pinchKeyPressed)
             PinchAllRetainers();
 
           var node = addon->UldManager.NodeList[27];
@@ -135,13 +149,13 @@ namespace Dagobert
       }
     }
 
-    private void DrawForRetainerSellList()
+    private void DrawForRetainerSellList(bool pinchKeyPressed)
     {
       unsafe
       {
         if (GenericHelpers.TryGetAddonByName<AtkUnitBase>("RetainerSellList", out var addon) && GenericHelpers.IsAddonReady(addon))
         {
-          if (Plugin.Configuration.EnablePinchKey && Plugin.KeyState[Plugin.Configuration.PinchKey])
+          if (pinchKeyPressed)
             PinchAllRetainerItems();
 
           var node = addon->UldManager.NodeList[17];
@@ -218,6 +232,8 @@ namespace Dagobert
       }
     }
 
+    private void CancelAutoPinch() => StopAutomation("Cancelled by user");
+
     private unsafe void PinchAllRetainers()
     {
       if (_taskManager.IsBusy || (_schedule.Running && !_startingScheduledRetainers))
@@ -282,6 +298,7 @@ namespace Dagobert
         if (!_schedule.Running)
         {
           _manualRunPending = true;
+          Queue(CloseScheduledRetainerList, "CloseRetainerList");
           Queue(CompleteManualRun);
         }
       }
@@ -344,6 +361,23 @@ namespace Dagobert
       }
       else
         return false;
+    }
+
+    private static unsafe bool? CloseRetainerList()
+    {
+      GenericHelpers.TryGetAddonByName<AtkUnitBase>("RetainerList", out var addon);
+      return CloseRetainerList(addon);
+    }
+
+    internal static unsafe bool? CloseRetainerList(AtkUnitBase* addon)
+    {
+      if (addon == null || !addon->IsVisible)
+        return true;
+
+      if (GenericHelpers.IsAddonReady(addon))
+        addon->Close(true);
+
+      return false;
     }
 
     private unsafe void PinchAllRetainerItems()
@@ -429,7 +463,9 @@ namespace Dagobert
       if (GenericHelpers.TryGetAddonByName<AtkUnitBase>("ContextMenu", out var addon) && GenericHelpers.IsAddonReady(addon))
       {
         var reader = new ReaderContextMenu(addon);
-        if (!IsItemMannequin(reader.Entries))
+        // Addon 930 is the client's localized "Adjust Price" context menu label.
+        var adjustPriceText = Svc.Data.GetExcelSheet<Addon>().GetRow(930).Text.GetText();
+        if (!IsItemMannequin(reader.Entries.Select(entry => entry.Name), adjustPriceText))
         {
           Svc.Log.Debug($"Clicking adjust price");
           ECommons.Automation.Callback.Fire(addon, true, 0, 0, 0, 0, 0); // click adjust price
@@ -452,13 +488,12 @@ namespace Dagobert
     /// the "adjust price" entry in the given <paramref name="contextMenuEntries"/>.
     /// </summary>
     /// <param name="contextMenuEntries">Context menu entries to check.</param>
+    /// <param name="adjustPriceText">The client's localized price adjustment label.</param>
     /// <returns>True if item is a mannequin item, false otherwise.</returns>
-    private static bool IsItemMannequin(List<ContextMenuEntry> contextMenuEntries)
+    internal static bool IsItemMannequin(IEnumerable<string> contextMenuEntries, string adjustPriceText)
     {
-      return !contextMenuEntries.Any((e) => e.Name.Equals("adjust price", StringComparison.CurrentCultureIgnoreCase)
-                                        || e.Name.Equals("preis ändern", StringComparison.CurrentCultureIgnoreCase)
-                                        || e.Name.Equals("価格を変更する", StringComparison.CurrentCultureIgnoreCase)
-                                        || e.Name.Equals("changer le prix", StringComparison.CurrentCultureIgnoreCase));
+      return string.IsNullOrWhiteSpace(adjustPriceText) ||
+        !contextMenuEntries.Any(name => string.Equals(name, adjustPriceText, StringComparison.OrdinalIgnoreCase));
     }
 
     private unsafe bool? DelayMarketBoard()
@@ -573,22 +608,24 @@ namespace Dagobert
           }
 
           var rawItemName = GetRetainerSellRawItemName(retainerSell);
-          var limitedPrice = ApplyItemPriceLimits(itemName, rawItemName, _newPrice.Value);
+          ItemNameResolver.TryGetItemId(itemName, rawItemName, out var itemId);
+          var candidatePrice = _newPrice.Value;
+          var limitedPrice = Plugin.Configuration.ApplyPriceLimits(itemId, _oldPrice.Value, candidatePrice);
           if (limitedPrice != _newPrice.Value)
           {
-            Svc.Log.Debug($"{itemName}: item price limit adjusted {_newPrice.Value} to {limitedPrice}");
+            Svc.Log.Debug($"{itemName}: price limits adjusted {_newPrice.Value} to {limitedPrice}");
             _newPrice = limitedPrice;
           }
 
           var cutPercentage = ((float)_newPrice.Value - _oldPrice.Value) / _oldPrice.Value * 100f;
-          if (cutPercentage >= -Plugin.Configuration.MaxUndercutPercentage)
+          if (Plugin.Configuration.IsUndercutAllowed(_oldPrice.Value, _newPrice.Value))
           {
             Svc.Log.Debug($"Setting new price");
             retainerSell->AskingPrice->SetValue(_newPrice.Value);
             Communicator.PrintPriceUpdate(itemName, _oldPrice.Value, _newPrice.Value, cutPercentage, _newPriceFromUniversalis);
           }
           else
-            Communicator.PrintAboveMaxCutError(itemName);
+            Communicator.PrintAboveUndercutLimitError(itemName);
 
           ECommons.Automation.Callback.Fire(&retainerSell->AtkUnitBase, true, 0); // confirm
           ui->Close(true);
@@ -639,15 +676,6 @@ namespace Dagobert
     private static unsafe string GetRetainerSellRawItemName(AddonRetainerSell* addon)
     {
       return addon->ItemName->NodeText.ToString();
-    }
-
-    private static int ApplyItemPriceLimits(string itemName, string rawItemName, int price)
-    {
-      if (!ItemNameResolver.TryGetItemId(itemName, rawItemName, out var itemId))
-        return price;
-
-      var limit = Plugin.Configuration.GetItemPriceLimit(itemId);
-      return limit?.Apply(price) ?? price;
     }
 
     private void StartUniversalisPriceRequest(string itemName, string rawItemName, PriceIdentity identity, long generation)
@@ -713,9 +741,10 @@ namespace Dagobert
       if (_taskManager.IsBusy)
         return;
 
+      ClearState();
+
       if (Plugin.Configuration.EnablePostPinchkey && Plugin.KeyState[Plugin.Configuration.PostPinchKey])
       {
-        ClearState(); // Each post-pinch action is an independent run.
         Queue(ClickComparePrice, $"ClickComparePricePosted");
         Queue(SetNewPrice, $"SetNewPricePosted");
       }
@@ -774,12 +803,8 @@ namespace Dagobert
     private void ClearState()
     {
       ResetCurrentPrice();
-      _newPrice = null;
-      _newPriceFromUniversalis = false;
       _cachedPrices = [];
       _cachedPricesUseUniversalisDataCenterPrices = Plugin.Configuration.UseUniversalisDataCenterPrices;
-      _skipCurrentItem = false;
-      CancelUniversalisPriceRequest();
     }
 
     private void ClearCachedPricesIfUniversalisSettingChanged()
