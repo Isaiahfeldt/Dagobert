@@ -27,6 +27,9 @@ namespace Dagobert
 {
   internal sealed partial class AutoPinch : Window, IDisposable
   {
+    // Row 930 is the window title, whose translation can differ from the menu action.
+    internal const uint AdjustPriceMenuTextRowId = 959;
+
     private readonly MarketBoardHandler _mbHandler;
     private readonly UniversalisPriceProvider _universalisPriceProvider;
     private readonly PriceRequestGuard _priceGuard = new();
@@ -298,7 +301,11 @@ namespace Dagobert
         if (!_schedule.Running)
         {
           _manualRunPending = true;
-          Queue(CloseScheduledRetainerList, "CloseRetainerList");
+          if (Plugin.Configuration.CloseRetainerListAfterPinching)
+          {
+            Queue(() => Svc.Log.Information("Auto Pinch finished; closing the retainer list."));
+            Queue(CloseScheduledRetainerList, "CloseRetainerList");
+          }
           Queue(CompleteManualRun);
         }
       }
@@ -363,19 +370,24 @@ namespace Dagobert
         return false;
     }
 
-    private static unsafe bool? CloseRetainerList()
+    private static unsafe bool? CloseRetainerList(ref bool closeRequested)
     {
       GenericHelpers.TryGetAddonByName<AtkUnitBase>("RetainerList", out var addon);
-      return CloseRetainerList(addon);
+      return CloseRetainerList(addon, ref closeRequested);
     }
 
-    internal static unsafe bool? CloseRetainerList(AtkUnitBase* addon)
+    internal static unsafe bool? CloseRetainerList(AtkUnitBase* addon, ref bool closeRequested)
     {
+      // The list can still be hidden while returning from the last retainer.
       if (addon == null || !addon->IsVisible)
-        return true;
+        return closeRequested;
 
-      if (GenericHelpers.IsAddonReady(addon))
-        addon->Close(true);
+      if (!closeRequested && GenericHelpers.IsAddonReady(addon))
+      {
+        var close = new AtkValue { Type = AtkValueType.Int, Int = -1 };
+        addon->FireCallback(1, &close);
+        closeRequested = true;
+      }
 
       return false;
     }
@@ -463,8 +475,7 @@ namespace Dagobert
       if (GenericHelpers.TryGetAddonByName<AtkUnitBase>("ContextMenu", out var addon) && GenericHelpers.IsAddonReady(addon))
       {
         var reader = new ReaderContextMenu(addon);
-        // Addon 930 is the client's localized "Adjust Price" context menu label.
-        var adjustPriceText = Svc.Data.GetExcelSheet<Addon>().GetRow(930).Text.GetText();
+        var adjustPriceText = Svc.Data.GetExcelSheet<Addon>().GetRow(AdjustPriceMenuTextRowId).Text.GetText();
         if (!IsItemMannequin(reader.Entries.Select(entry => entry.Name), adjustPriceText))
         {
           Svc.Log.Debug($"Clicking adjust price");
