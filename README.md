@@ -69,6 +69,7 @@ Recommended timing values are around `3000-4000 ms` for the price check delay an
 | Option | Default | Description |
 | --- | --- | --- |
 | Retainer Selection | All enabled | Choose which retainers are included when using Auto Pinch from the retainer list. Open the retainer list in-game to populate or refresh this list. |
+| Close retainer list after pinching | Off | Closes the main retainer list after Auto Pinch finishes all selected retainers. Applies when started from the main retainer list. |
 | Show errors in chat | On | Prints pinching errors and skipped items to chat. |
 | Show Price Adjustments | On | Prints detailed price changes to chat. |
 | Show Retainer Names | On | Prints each retainer name while pinching all retainers. |
@@ -100,6 +101,7 @@ The Text-to-Speech options are shown when Windows TTS is available.
 Dagobert adds an `Auto Pinch` button to the retainer list and retainer sell list. While Auto Pinch is running, avoid interacting with the game until it finishes or you press `Cancel`.
 
 During an Auto Pinch run, Dagobert remembers the first valid price for each item and reuses it for duplicate listings, skipping the marketboard lookup and its delays. HQ and NQ items are cached separately. Each listing still uses its own min/max limits and maximum-undercut safety check. The cache is cleared when you start a new Auto Pinch run.
+After manual processing of all selected retainers, Auto Pinch leaves the retainer list open by default. Enable `Close retainer list after pinching` in the `General` tab to close it before allowing AutoRetainer to resume. Scheduled runs always close the bell so the next cycle can start.
 
 ## Scheduled Auto Pinch
 

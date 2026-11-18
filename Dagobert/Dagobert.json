@@ -13,5 +13,5 @@
   "ImageUrls": [
     ""
   ],
-  "Changelog": "Validate item ID, HQ/NQ and active request before accepting, caching, or applying prices. Ignore market data for other items and obsolete responses. Stop on identity mismatches. Post-pinch actions now also clear their per-run cache."
+  "Changelog": "Merge upstream 1.15.1.0: fix localized Adjust Price detection and add optional retainer-list closing for manual runs. Preserve per-run identity-checked caching, scheduling, random delays and automatic retainer selection. Scheduled runs still close the bell."
 }
